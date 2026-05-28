@@ -2,11 +2,11 @@ from torch_geometric import nn
 import torch
 
 class GAT_Policy (nn.Module):
-    def __init__ (self, node_dim, edge_dim, hidden_dim=128):
+    def __init__ (self, node_dim, hidden_dim=128):
         super().__init__()
 
         self.encoding = nn.Sequential (
-            nn.Linear(input, hidden_dim),
+            nn.Linear(node_dim, hidden_dim),
             nn.ReLU(),
         )
 

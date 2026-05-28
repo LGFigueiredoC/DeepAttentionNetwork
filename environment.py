@@ -6,10 +6,10 @@ from torch_geometric.data import Data
 
 
 class CVRP_env:
-    def __init__(self, path, generate=False, seed=42, device='cuda' if torch.cuda.is_available() else 'cpu'):
+    def __init__(self, path, instance_num=100, generate=False, seed=42, device='cuda' if torch.cuda.is_available() else 'cpu'):
         self.device = device
         if generate:
-            generator = instance_generator.Instance_generator(path, 100)
+            generator = instance_generator.Instance_generator(path, instance_num)
             dimensions = ['20', '50']
             attributes = [
                 [f'{i}' for i in range(8)],
@@ -30,7 +30,7 @@ class CVRP_env:
 
     class State:
         def __init__(self, instance):
-            self.nodes = np.array(instance["dimension"])
+            self.nodes = instance["dimension"]
             self.customer_nodes = np.array(instance["customers"])
             self.demands = np.array(instance["demands"])
             self.visited = {node: False for node in self.customer_nodes}
@@ -60,8 +60,10 @@ class CVRP_env:
             if not visited:
                 self.mask[node] = (self.state.remaining_capacity >= self.state.demands[node+1])
 
+        return self._get_graph_state()
+
         
-    def _graph_state (self):
+    def _get_graph_state (self):
         node_features = [[
                 self.state.demands[i],
                 self.state.visited[i],
@@ -87,4 +89,12 @@ class CVRP_env:
         self.state.current_node = destination
 
         if destination == self.depot:
-            self.state.remaining_capacity = self.
+            self.state.remaining_capacity = self.state.total_capacity
+        
+        self.state.remaining_capacity -= self.state.demands[destination]
+
+        if self.state.current_node == self.depot:
+            if len(self.state.visited) == len(self.state.customer_nodes):
+                return self._get_graph_state(), -cost, True
+            
+        return self._get_graph_state, -cost, False
