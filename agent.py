@@ -19,6 +19,7 @@ class DeepQAgent:
         self.target = copy.deepcopy(self.policy.state_dict())
         self.optimizer = torch.optim.Adam(self.policy.parameters(), self.lr)
 
+
     class ReplayMemory (object):
         def __init__(self, capacity=100):
             self.memory = deque([], maxlen=capacity)
@@ -34,37 +35,55 @@ class DeepQAgent:
         
 
     def train (self):
-        max_steps = 3*self.environment.state.nodes
-        losses = []
-        replay_memory = self.ReplayMemory()
-        done = False
-
         for episode in range(self.iterations):
-            #self.policy.reset_memory()
+            losses = []
             experience = []
+            replay_memory = self.ReplayMemory()
             state = self.environment.reset().to(self.device)
             experience.append(self.environment.state.current_node)
-            #print(state)
-            for i in range(max_steps):
-                #print(state)
-                action = self.policy(state)
-                #print(action)
+            done = False
+            max_steps = 3*self.environment.state.nodes
 
-                state, reward, done = self.environment.step(int(torch.argmax(action)))
-                experience.extend([self.environment.state.current_node, reward])
+
+            for i in range(max_steps):
+                if random.random() < self.epsilon and self.epsilon > self.eps_threshold: # resolver mask e visited
+                    action = random.sample(self.environment.state.visited)
+                    self.epsilon = self.epsilon*self.decay
+                else:
+                    with torch.no_grad():
+                        actions = self.policy(state)
+
+                    action = self.environment.get_masked_action(actions)
+
+
+                state, reward, done = self.environment.step(action)
+                experience.extend([reward, self.environment.state.current_node])
 
                 replay_memory.push(experience)
-                print(i,state, reward, done)
-                # if done:
-                #     output = reward
 
-                # else:
-                #     target_action = self.target(state)
-                #     output = reward + self.gamma*int(torch.argmax(target_action))
+                
+                if i%4 == 0:
+                    state, reward, destination = replay_memory.sample(1)
 
-                #  loss = torch.nn.MSELoss(output - replay_memory.sample())
+                    if done:
+                        output = reward
+
+                    else:
+                        target_action = int(torch.argmax(self.target(destination)))
+                        target_reward = self.environment.state.distance_matrix[target_action][destination]
+
+                        output = reward + self.gamma*target_reward
+                    
+                    actual_action = torch.argmax(self.policy(state))
+                    actual_reward = self.environment.state.distance_matrix[state][actual_action]
+
+                    loss = torch.nn.MSELoss(output - actual_reward)
+                    losses.append(loss)
+                    
+                    loss.requires_grad_()
+                    self.optimizer.zero_grad()
+                    loss.backward()
                 break
-
             break
 
 

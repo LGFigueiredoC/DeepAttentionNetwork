@@ -34,7 +34,7 @@ class CVRP_env:
             self.nodes = instance["dimension"]
             self.customer_nodes = self.nodes-1
             self.demands = np.array(instance["demand"])
-            self.visited = [False for i in range(self.nodes)]
+            self.available = [1 for i in range(self.nodes)]
             self.n_visited = 0
             self.total_capacity = instance["capacity"]
             self.remaining_capacity = self.total_capacity
@@ -56,7 +56,6 @@ class CVRP_env:
         self.current_instance = self.loader.next_instance()
         self.state = self.State(self.current_instance)
         self.edge_index = self.__generate_edge_index()
-        self.mask = self.state.visited.copy()
 
         return self._get_graph_state()
 
@@ -64,7 +63,7 @@ class CVRP_env:
     def _get_graph_state (self):
         customer_features = [[
                 self.state.demands[i],
-                self.state.visited[i],
+                self.state.available[i],
                 i == self.state.current_node,
                 self.state.remaining_capacity,
                 self.state.distance_matrix[self.state.current_node][i+1] 
@@ -89,12 +88,12 @@ class CVRP_env:
         cost = self.state.distance_matrix[self.state.current_node][destination]
         self.state.total_cost += cost
         self.state.current_node = destination
-        self.state.visited[destination] = True
+        self.state.available[destination] = 1
         self.state.n_visited = self.state.n_visited + 1
 
         if destination == self.depot:
             self.state.remaining_capacity = self.state.total_capacity
-            self.state.visited[destination] = False
+            self.state.visited[destination] = 0
             self.state.n_visited = self.state.n_visited - 1
         
         self.state.remaining_capacity -= self.state.demands[destination]
@@ -104,3 +103,9 @@ class CVRP_env:
                 return self._get_graph_state(), -cost, True
             
         return self._get_graph_state(), -cost, False
+
+
+    def get_masked_action (self, states):
+        mask = np.array()
+        int(torch.argmax(self.policy(states)))
+        pass
