@@ -14,7 +14,7 @@ class DeepQAgent:
         self.eps_threshold = eps_threshold
         self.device = device
         
-        self.environment = CVRP_env("test_instances", 10, False, device=self.device)
+        self.environment = CVRP_env("test_instances", 10, True, device=self.device)
         self.policy = GAT_Policy(node_dim=5, edge_attr=1, hidden_dim=32)
         self.target = copy.deepcopy(self.policy.state_dict())
         self.optimizer = torch.optim.Adam(self.policy.parameters(), self.lr)
@@ -47,7 +47,7 @@ class DeepQAgent:
 
             for i in range(max_steps):
                 if random.random() < self.epsilon and self.epsilon > self.eps_threshold: # resolver mask e visited
-                    action = random.sample(self.environment.state.visited)
+                    action = random.sample(self.environment.get_mask())
                     self.epsilon = self.epsilon*self.decay
                 else:
                     with torch.no_grad():

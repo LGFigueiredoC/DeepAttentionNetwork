@@ -34,7 +34,7 @@ class CVRP_env:
             self.nodes = instance["dimension"]
             self.customer_nodes = self.nodes-1
             self.demands = np.array(instance["demand"])
-            self.available = [1 for i in range(self.nodes)]
+            self.available = np.array([1 for i in range(self.nodes)])
             self.n_visited = 0
             self.total_capacity = instance["capacity"]
             self.remaining_capacity = self.total_capacity
@@ -105,7 +105,14 @@ class CVRP_env:
         return self._get_graph_state(), -cost, False
 
 
+    def get_mask (self):
+        exceed_cap = np.array([1 if (self.state.demands[node] < self.state.remaining_capacity) else 0 for node in self.state.nodes])
+        mask = self.state.available * exceed_cap
+    
+        return mask
+
     def get_masked_action (self, states):
-        mask = np.array()
-        int(torch.argmax(self.policy(states)))
-        pass
+        exceed_cap = np.array([1 if (self.state.demands[node] < self.state.remaining_capacity) else 0 for node in self.state.nodes])
+        mask = self.state.available * exceed_cap
+
+        return int(torch.argmax(mask*states))
