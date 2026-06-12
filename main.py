@@ -3,7 +3,7 @@ from environment import CVRP_env
 from agent import DeepQAgent
 
 def main ():
-    agent = DeepQAgent(iterations=10)
+    agent = DeepQAgent(iterations=50000)
     agent.train()
 
 if __name__ == "__main__":

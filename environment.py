@@ -20,7 +20,7 @@ class CVRP_env:
             print(attributes)
             generator.generate_instances(dimensions, attributes)
 
-        self.loader = instance_loader.Instance_loader(path, has_solution=False)
+        self.loader = instance_loader.Instance_loader(path, has_solution=False, reset=True)
         self.seed = seed
         self.depot = 0
         self.rng = random.Random(seed)
@@ -62,20 +62,20 @@ class CVRP_env:
         
     def _get_graph_state (self):
         customer_features = [[
-                self.state.demands[i],
-                self.state.available[i],
-                i == self.state.current_node,
+                self.state.demands[i+1],
+                self.state.available[i+1],
+                i+1 == self.state.current_node,
                 self.state.remaining_capacity,
                 self.state.distance_matrix[self.state.current_node][i+1] 
             ]
             for i in range(self.state.customer_nodes)
         ]
-        depot_features = [self.depot, self.state.current_node == self.depot, self.state.current_node, self.state.remaining_capacity, self.state.distance_matrix[self.state.current_node][self.depot]]
+        depot_features = [self.depot, self.state.current_node != self.depot, self.state.current_node == self.depot, self.state.remaining_capacity, self.state.distance_matrix[self.state.current_node][self.depot]]
 
         node_features = [depot_features] + customer_features
 
         x = torch.tensor(node_features, dtype=torch.float, device=self.device)
-        #print(x)
+
         src, tgt = self.edge_index
         edge_attr = torch.tensor(self.state.distance_matrix[src.cpu(), tgt.cpu()].copy(), dtype=torch.float32, device=self.device).detach().requires_grad_(True).unsqueeze(1)
 
@@ -87,16 +87,17 @@ class CVRP_env:
 
         cost = self.state.distance_matrix[self.state.current_node][destination]
         self.state.total_cost += cost
-        self.state.current_node = destination
-        self.state.available[destination] = 1
+        self.state.available[destination] = 0
         self.state.n_visited = self.state.n_visited + 1
 
         if destination == self.depot:
             self.state.remaining_capacity = self.state.total_capacity
-            self.state.visited[destination] = 0
+            self.state.available[destination] = 1
             self.state.n_visited = self.state.n_visited - 1
         
         self.state.remaining_capacity -= self.state.demands[destination]
+
+        self.state.current_node = destination
 
         if self.state.current_node == self.depot:
             if self.state.n_visited == self.state.customer_nodes:
@@ -106,13 +107,13 @@ class CVRP_env:
 
 
     def get_mask (self):
-        exceed_cap = np.array([1 if (self.state.demands[node] < self.state.remaining_capacity) else 0 for node in self.state.nodes])
+        exceed_cap = np.array([1 if (self.state.demands[node] <= self.state.remaining_capacity) else 0 for node in range(self.state.nodes)])
         mask = self.state.available * exceed_cap
-    
+        mask[self.state.current_node] = 0
+        
         return mask
 
     def get_masked_action (self, states):
-        exceed_cap = np.array([1 if (self.state.demands[node] < self.state.remaining_capacity) else 0 for node in self.state.nodes])
-        mask = self.state.available * exceed_cap
+        mask = self.get_mask()
 
-        return int(torch.argmax(mask*states))
+        return int(torch.argmax(torch.from_numpy(mask).to(self.device)*states))

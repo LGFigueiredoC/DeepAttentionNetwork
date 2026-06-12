@@ -5,7 +5,6 @@ import torch
 class GAT_Policy (nn.Module):
     def __init__ (self, node_dim, edge_attr, hidden_dim=128):
         super().__init__()
-
         self.encoding = nn.Sequential (
             nn.Linear(node_dim, hidden_dim),
             nn.ReLU(),
@@ -18,7 +17,8 @@ class GAT_Policy (nn.Module):
         self.policy = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, 1)
+            nn.Linear(hidden_dim, 1),
+            nn.Softmax(dim=1)
         )
 
     def forward(self, data):
