@@ -121,9 +121,10 @@ class CVRP_env:
         return mask
 
     def get_masked_action (self, states):
-        mask = self.get_mask()
-        masked_space = torch.from_numpy(np.where(mask == 0, -np.inf, mask)).to(self.device)
-        actions = masked_space*states
-        action = torch.argmax(actions)
-        print(action)
+        mask = torch.from_numpy(self.get_mask()).to(self.device)
+        actions = mask*states
+        action_space = torch.where(actions == 0, torch.tensor(float('-inf')), actions)
+
+        action = torch.argmax(action_space)
+        #print(action)
         return action

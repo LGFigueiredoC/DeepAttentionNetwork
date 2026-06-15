@@ -42,13 +42,13 @@ class DeepQAgent:
 
     def train (self):
         state = self.environment._get_graph_state()
+        replay_memory = self.ReplayMemory()
         #trained = False
         print("Número de parâmetros treináveis:", sum(p.numel() for p in self.policy.parameters() if p.requires_grad))
         for episode in range(self.iterations):
 
             losses = []
             
-            replay_memory = self.ReplayMemory()
             #print(replay_memory.memory)
             #print(state.x)
             done = False
@@ -72,14 +72,14 @@ class DeepQAgent:
                     with torch.no_grad():
                         actions = self.policy(state).squeeze(-1)
 
-                    print("policy actions", actions)
+                    #print("policy actions", actions)
                     action = self.environment.get_masked_action(actions)
 
 
                 #print(action)
                 state, reward, done = self.environment.step(action)
                 
-                experience.extend([reward, state.clone()])
+                experience.extend([reward, state.clone(), action])
 
                 replay_memory.push(experience)
 
@@ -88,7 +88,7 @@ class DeepQAgent:
                     #print(replay_memory.sample())
                     #print(replay_memory.memory)
                     #print(replay_memory.sample())
-                    state_0, reward, state_1 = replay_memory.sample()
+                    state_0, reward, state_1, action = replay_memory.sample()
 
                     if done:
                         output = torch.tensor(reward, dtype=torch.float32).to(self.device)
@@ -112,40 +112,40 @@ class DeepQAgent:
                         #print(state_1_action)
                     
                         state_1_reward = state_1_action_space[state_1_action].detach()
-                        print("target", type(reward), type(state_1_reward))
+
                         output = reward + self.gamma*state_1_reward
                     
                     #print(state_0.x)
                     state_0_action_space = self.policy(state_0).squeeze(-1)
                     #print(state_0_action_space)
-                    available = state_0.x[:, 1]
-                    exceed_cap = state_0.x[:, 3] >= state_0.x[:, 0]
+                    # available = state_0.x[:, 1]
+                    # exceed_cap = state_0.x[:, 3] >= state_0.x[:, 0]
                     #print(available)
                     #print(exceed_cap)
-                    mask = available*exceed_cap.float()
-                    masked_space = state_0_action_space.masked_fill(mask == 0, -1e9)
+                    # mask = available*exceed_cap.float()
+                    # masked_space = state_0_action_space.masked_fill(mask == 0, -1e9)
                     #print(mask)
                     
-                    state_0_action = torch.argmax(masked_space)
+                    # state_0_action = torch.argmax(masked_space)
                     
-                    state_0_reward = state_0_action_space[state_0_action]
+                    state_0_reward = state_0_action_space[action]
                     
                     criterion = torch.nn.MSELoss().to(self.device)
-                    print("policy", type(state_0_reward), type(output))
                     loss = criterion(state_0_reward, output)
                     losses.append(loss)
                     
-                    loss.requires_grad_()
+                    #loss.requires_grad_()
                     self.optimizer.zero_grad()
                     loss.backward()
                     self.optimizer.step()
                     print(f"Episode: {episode}, Step:{i}, loss:{loss}")
-                    # for name, param in self.policy.named_parameters():
-                    #     if param.grad is not None:
-                    #         print(f"Camada: {name} | Gradiente Máximo: {param.grad.abs().max().item()}")
-                    #     else:
-                    #         print(f"Camada: {name} | GRADIENTE É NULO!")
+
+                    for name, param in self.policy.named_parameters():
+                        if param.grad is not None:
+                            print(f"Camada: {name} | Gradiente Máximo: {param.grad.abs().max().item()}")
+                        else:
+                            print(f"Camada: {name} | GRADIENTE É NULO!")
             
-                
-            self.target.load_state_dict(self.policy.state_dict())
-            self.target.to(device=self.device)
+            if episode % 50 == 0:
+                self.target.load_state_dict(self.policy.state_dict())
+                self.target.to(device=self.device)
