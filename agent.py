@@ -14,7 +14,7 @@ class DeepQAgent:
         self.eps_threshold = eps_threshold
         self.device = device
         
-        self.environment = CVRP_env("super_teste", 10000, False, device=self.device)
+        self.environment = CVRP_env("mini_teste", 10, False, device=self.device)
 
         self.policy = GAT_Policy(node_dim=5, edge_attr=1, hidden_dim=32)
         self.policy.to(device=self.device)
@@ -64,12 +64,15 @@ class DeepQAgent:
                 experience.append(state.clone())
 
                 if random.random() < self.epsilon and self.epsilon > self.eps_threshold: # resolver mask e visited
-                    action = random.choice([idx for idx, val in enumerate(self.environment.get_mask()) if val == 1])
+                    mask = [idx for idx, val in enumerate(self.environment.get_mask()) if val == 1]
+                    #print(mask)
+                    action = random.choice(mask)
                     self.epsilon = self.epsilon*self.decay
                 else:
                     with torch.no_grad():
                         actions = self.policy(state).squeeze(-1)
 
+                    print("policy actions", actions)
                     action = self.environment.get_masked_action(actions)
 
 

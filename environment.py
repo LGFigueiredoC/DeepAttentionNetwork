@@ -10,7 +10,7 @@ class CVRP_env:
         self.device = device
         if generate:
             generator = instance_generator.Instance_generator(path+"/instances", instance_num)
-            dimensions = [20, 50]
+            dimensions = [10]
             attributes = [
                 [f'{i}' for i in range(1, 8)],
                 [f'{i}' for i in range(1, 4)],
@@ -88,12 +88,12 @@ class CVRP_env:
         cost = self.state.distance_matrix[self.state.current_node][destination]
         self.state.total_cost += cost
         self.state.available[destination] = 0
-        self.state.n_visited = self.state.n_visited + 1
+        self.state.n_visited += 1
 
         if destination == self.depot:
             self.state.remaining_capacity = self.state.total_capacity
             #self.state.available[destination] = 1
-            self.state.n_visited = self.state.n_visited - 1
+            self.state.n_visited -= 1
         else:
             self.state.available[self.depot] = 1
         
@@ -102,7 +102,9 @@ class CVRP_env:
         self.state.current_node = destination
 
         if self.state.current_node == self.depot:
+            #print(self.state.n_visited, self.state.customer_nodes)
             if self.state.n_visited == self.state.customer_nodes:
+                print(f"DONE, {self.state.step_count} steps, {self.state.n_visited} visited")
                 #self.state.remaining_capacity = self.state.total_capacity
                 return self._get_graph_state(), -cost, True
             
@@ -113,12 +115,15 @@ class CVRP_env:
         exceed_cap = np.array([1 if (self.state.demands[node] <= self.state.remaining_capacity) else 0 for node in range(self.state.nodes)])
         mask = self.state.available * exceed_cap
         mask[self.state.current_node] = 0
-        print("av", self.state.available, "ec", exceed_cap)
-        print(self.state.current_node, self.state.remaining_capacity, mask)
-        print(len(self.state.demands))
+        #print("av", self.state.available, "ec", exceed_cap)
+        #print(self.state.current_node, self.state.remaining_capacity, mask)
+        #print(len(self.state.demands))
         return mask
 
     def get_masked_action (self, states):
         mask = self.get_mask()
-
-        return int(torch.argmax(torch.from_numpy(mask).to(self.device)*states))
+        masked_space = torch.from_numpy(np.where(mask == 0, -np.inf, mask)).to(self.device)
+        actions = masked_space*states
+        action = torch.argmax(actions)
+        print(action)
+        return action
