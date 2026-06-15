@@ -92,8 +92,10 @@ class CVRP_env:
 
         if destination == self.depot:
             self.state.remaining_capacity = self.state.total_capacity
-            self.state.available[destination] = 1
+            #self.state.available[destination] = 1
             self.state.n_visited = self.state.n_visited - 1
+        else:
+            self.state.available[self.depot] = 1
         
         self.state.remaining_capacity -= self.state.demands[destination]
 
@@ -101,6 +103,7 @@ class CVRP_env:
 
         if self.state.current_node == self.depot:
             if self.state.n_visited == self.state.customer_nodes:
+                #self.state.remaining_capacity = self.state.total_capacity
                 return self._get_graph_state(), -cost, True
             
         return self._get_graph_state(), -cost, False
@@ -110,7 +113,9 @@ class CVRP_env:
         exceed_cap = np.array([1 if (self.state.demands[node] <= self.state.remaining_capacity) else 0 for node in range(self.state.nodes)])
         mask = self.state.available * exceed_cap
         mask[self.state.current_node] = 0
-        
+        print("av", self.state.available, "ec", exceed_cap)
+        print(self.state.current_node, self.state.remaining_capacity, mask)
+        print(len(self.state.demands))
         return mask
 
     def get_masked_action (self, states):

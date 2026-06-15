@@ -18,7 +18,7 @@ class GAT_Policy (nn.Module):
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, 1),
-            nn.Softmax(dim=1)
+            #nn.Softmax(dim=1)
         )
 
     def forward(self, data):
