@@ -48,8 +48,8 @@ class DeepQAgent:
         #trained = False
         total_steps = 0
         print("Número de parâmetros treináveis:", sum(p.numel() for p in self.policy.parameters() if p.requires_grad))
+        losses = []
         for episode in range(self.iterations+1):
-            losses = []
             
             #print(replay_memory.memory)
             #print(state.x)
@@ -144,7 +144,7 @@ class DeepQAgent:
                     
                     criterion = torch.nn.MSELoss().to(self.device)
                     loss = criterion(pred_tensor, targ_tensor)
-                    losses.append(loss.cpu().detach().numpy())
+                    losses.append(loss.item())
                     
                     #loss.requires_grad_()
                     self.optimizer.zero_grad()
@@ -166,10 +166,12 @@ class DeepQAgent:
 
             if episode % 5000 == 0:
                 torch.save(self.policy.state_dict(), f"models/model_{episode}.pth")
+                #print(losses)
+                plt.plot(losses)
+                plt.title(f"loss{episode}")
+                plt.savefig(f"loss{episode}.png")
+                plt.close()
+                #plt.show()
 
         #loss_arr = losses.numpy()
-        print(losses)
-        plt.plot(losses)
-        plt.title("loss")
-        plt.savefig("loss.png")
-        plt.show()
+            
