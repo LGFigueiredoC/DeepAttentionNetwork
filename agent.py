@@ -3,6 +3,8 @@ from policy import GAT_Policy
 import torch, copy
 from collections import deque
 import random
+import matplotlib.pyplot as plt
+import numpy as np
 
 class DeepQAgent:
     def __init__(self, iterations=100, gamma=0.9, lr=5e-5, epsilon=1.0, decay=0.999, eps_threshold=0.01, device = 'cuda' if torch.cuda.is_available() else 'cpu'):
@@ -14,7 +16,7 @@ class DeepQAgent:
         self.eps_threshold = eps_threshold
         self.device = device
         
-        self.environment = CVRP_env("mini_teste", 10, False, device=self.device)
+        self.environment = CVRP_env("super_teste", 10, False, device=self.device)
 
         self.policy = GAT_Policy(node_dim=5, edge_attr=1, hidden_dim=32)
         self.policy.to(device=self.device)
@@ -36,17 +38,17 @@ class DeepQAgent:
         def push (self, args):
             self.memory.append(args[:])
 
-        def sample (self):
-            return random.choice(self.memory)
+        def sample (self, k):
+            return random.sample(self.memory, k=k)
         
 
     def train (self):
         state = self.environment._get_graph_state()
         replay_memory = self.ReplayMemory()
         #trained = False
+        total_steps = 0
         print("Número de parâmetros treináveis:", sum(p.numel() for p in self.policy.parameters() if p.requires_grad))
-        for episode in range(self.iterations):
-
+        for episode in range(self.iterations+1):
             losses = []
             
             #print(replay_memory.memory)
@@ -83,56 +85,66 @@ class DeepQAgent:
 
                 replay_memory.push(experience)
 
-                
-                if i%4 == 0:
+                total_steps += 1
+
+                if i%4 == 0 and len(replay_memory) >= 32:
+                    batches = replay_memory.sample(32)
+                    predictions = []
+                    targets = []
                     #print(replay_memory.sample())
                     #print(replay_memory.memory)
                     #print(replay_memory.sample())
-                    state_0, reward, state_1, action = replay_memory.sample()
+                    for state_0, reward, state_1, action in batches:
+                        if done:
+                            output = torch.tensor(reward, dtype=torch.float32).to(self.device)
 
-                    if done:
-                        output = torch.tensor(reward, dtype=torch.float32).to(self.device)
+                        else:
+                            #print(state_1.x)
+                            with torch.no_grad():
+                                state_1_action_space = self.target(state_1).squeeze(-1)
 
-                    else:
-                        #print(state_1.x)
-                        with torch.no_grad():
-                            state_1_action_space = self.target(state_1).squeeze(-1)
-
-                        #print(state_1_action_space)
-                        available = state_1.x[:, 1]
-                        #print(len(available))
-                        exceed_cap = state_1.x[:, 3] >= state_1.x[:, 0]
+                            #print(state_1_action_space)
+                            available = state_1.x[:, 1]
+                            #print(len(available))
+                            exceed_cap = state_1.x[:, 3] >= state_1.x[:, 0]
+                            
+                            mask = available*exceed_cap.float()
+                            masked_space = state_1_action_space.masked_fill(mask == 0, -1e9)
+                            
+                            #print(len(masked_space))
+                            state_1_action = torch.argmax(masked_space)
+                            #print(state_1_action_space)
+                            #print(state_1_action)
                         
-                        mask = available*exceed_cap.float()
-                        masked_space = state_1_action_space.masked_fill(mask == 0, -1e9)
-                        
-                        #print(len(masked_space))
-                        state_1_action = torch.argmax(masked_space)
-                        #print(state_1_action_space)
-                        #print(state_1_action)
-                    
-                        state_1_reward = state_1_action_space[state_1_action].detach()
+                            state_1_reward = state_1_action_space[state_1_action].detach()
 
-                        output = reward + self.gamma*state_1_reward
+                            output = reward + self.gamma*state_1_reward
+                        
+                        #print(state_0.x)
+                        state_0_action_space = self.policy(state_0).squeeze(-1)
+                        #print(state_0_action_space)
+                        # available = state_0.x[:, 1]
+                        # exceed_cap = state_0.x[:, 3] >= state_0.x[:, 0]
+                        #print(available)
+                        #print(exceed_cap)
+                        # mask = available*exceed_cap.float()
+                        # masked_space = state_0_action_space.masked_fill(mask == 0, -1e9)
+                        #print(mask)
+                        
+                        # state_0_action = torch.argmax(masked_space)
+                        
+                        state_0_reward = state_0_action_space[action]
+                        predictions.append(state_0_reward)
+                        targets.append(output)
+
+                    pred_tensor = torch.stack(predictions)
+                    targ_tensor = torch.stack(targets)
+
                     
-                    #print(state_0.x)
-                    state_0_action_space = self.policy(state_0).squeeze(-1)
-                    #print(state_0_action_space)
-                    # available = state_0.x[:, 1]
-                    # exceed_cap = state_0.x[:, 3] >= state_0.x[:, 0]
-                    #print(available)
-                    #print(exceed_cap)
-                    # mask = available*exceed_cap.float()
-                    # masked_space = state_0_action_space.masked_fill(mask == 0, -1e9)
-                    #print(mask)
-                    
-                    # state_0_action = torch.argmax(masked_space)
-                    
-                    state_0_reward = state_0_action_space[action]
                     
                     criterion = torch.nn.MSELoss().to(self.device)
-                    loss = criterion(state_0_reward, output)
-                    losses.append(loss)
+                    loss = criterion(pred_tensor, targ_tensor)
+                    losses.append(loss.cpu().detach().numpy())
                     
                     #loss.requires_grad_()
                     self.optimizer.zero_grad()
@@ -140,12 +152,24 @@ class DeepQAgent:
                     self.optimizer.step()
                     print(f"Episode: {episode}, Step:{i}, loss:{loss}")
 
-                    for name, param in self.policy.named_parameters():
+                    
+            
+            if total_steps % 10000 == 0:
+                for name, param in self.policy.named_parameters():
                         if param.grad is not None:
                             print(f"Camada: {name} | Gradiente Máximo: {param.grad.abs().max().item()}")
                         else:
                             print(f"Camada: {name} | GRADIENTE É NULO!")
-            
-            if episode % 50 == 0:
+
                 self.target.load_state_dict(self.policy.state_dict())
                 self.target.to(device=self.device)
+
+            if episode % 5000 == 0:
+                torch.save(self.policy.state_dict(), f"models/model_{episode}.pth")
+
+        #loss_arr = losses.numpy()
+        print(losses)
+        plt.plot(losses)
+        plt.title("loss")
+        plt.savefig("loss.png")
+        plt.show()
