@@ -17,11 +17,12 @@ class DeepQAgent:
         self.device = device
         
         self.environment = CVRP_env("super_teste", 10, False, device=self.device)
+        hidden = 128
 
-        self.policy = GAT_Policy(node_dim=5, edge_attr=1, hidden_dim=32)
+        self.policy = GAT_Policy(node_dim=5, edge_attr=1, hidden_dim=hidden)
         self.policy.to(device=self.device)
 
-        self.target = GAT_Policy(node_dim=5, edge_attr=1, hidden_dim=32)
+        self.target = GAT_Policy(node_dim=5, edge_attr=1, hidden_dim=hidden)
         self.target.load_state_dict(self.policy.state_dict())
         self.target.to(device=self.device)
 
@@ -81,7 +82,7 @@ class DeepQAgent:
                 #print(action)
                 state, reward, done = self.environment.step(action)
                 
-                experience.extend([reward, state.clone(), action])
+                experience.extend([reward, state.clone(), action, done])
 
                 replay_memory.push(experience)
 
@@ -94,8 +95,8 @@ class DeepQAgent:
                     #print(replay_memory.sample())
                     #print(replay_memory.memory)
                     #print(replay_memory.sample())
-                    for state_0, reward, state_1, action in batches:
-                        if done:
+                    for state_0, reward, state_1, action, replay_done in batches:
+                        if replay_done:
                             output = torch.tensor(reward, dtype=torch.float32).to(self.device)
 
                         else:
@@ -112,13 +113,14 @@ class DeepQAgent:
                             masked_space = state_1_action_space.masked_fill(mask == 0, -1e9)
                             
                             #print(len(masked_space))
-                            state_1_action = torch.argmax(masked_space)
+                            state_1_action = torch.max(masked_space)
+                            #print(state_1_action)
                             #print(state_1_action_space)
                             #print(state_1_action)
                         
-                            state_1_reward = state_1_action_space[state_1_action].detach()
+                            #tate_1_reward = state_1_action_space[state_1_action].detach()
 
-                            output = reward + self.gamma*state_1_reward
+                            output = reward + self.gamma*state_1_action
                         
                         #print(state_0.x)
                         state_0_action_space = self.policy(state_0).squeeze(-1)
@@ -165,13 +167,59 @@ class DeepQAgent:
                 self.target.to(device=self.device)
 
             if episode % 5000 == 0:
-                torch.save(self.policy.state_dict(), f"models/model_{episode}.pth")
+                torch.save(self.policy.state_dict(), f"models_1/model_{episode}.pth")
                 #print(losses)
                 plt.plot(losses)
                 plt.title(f"loss{episode}")
-                plt.savefig(f"loss{episode}.png")
+                plt.savefig(f"loss_1{episode}.png")
                 plt.close()
                 #plt.show()
 
         #loss_arr = losses.numpy()
             
+
+    def validate (self, val_set, model_path):
+        self.environment = CVRP_env(val_set, 10, False, device=self.device)
+        self.policy.load_state_dict(torch.load(model_path, weights_only=True))
+        self.policy.eval()
+
+        for instance in range (len(self.environment.loader.instances)-1):
+            state = self.environment._get_graph_state()
+
+            done = False
+            max_steps = 3*self.environment.state.nodes
+
+            route = []
+            path = []
+            path.append(0)
+            action = None
+            for i in range(max_steps):
+                if action == 0:
+                    route.append(path.copy())
+                    del path[:]
+                    path.append(0)
+
+                if done == True:
+                    _ = self.environment.reset().to(self.device)
+                    break
+
+
+
+                with torch.no_grad():
+                    actions = self.policy(state).squeeze(-1)
+
+                #print("policy actions", actions)
+                action = self.environment.get_masked_action(actions)
+                #print(action)
+
+                #print(action)
+                state, reward, done = self.environment.step(action)
+                path.append(int(action.item()))
+                
+                #experience.extend([reward, state.clone(), action, done])
+
+                #replay_memory.push(experience)
+
+                #total_steps += 1
+
+            print(route)
