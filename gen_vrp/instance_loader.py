@@ -138,6 +138,11 @@ class Instance_loader ():
         return np.eye(instance["dimension"]) - (D_sqrt @ L @ D_sqrt)
     
 
+    def get_current_instance (self):
+        vrp = list(self.files)
+        return vrp[int(self.keys[self.idx])], self.instances[self.keys[self.idx]]
+    
+
 # gen = Instance_loader("test_set")
 # inst, sol = gen.next_instance("symmetric")
 

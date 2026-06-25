@@ -5,6 +5,10 @@ from collections import deque
 import random
 import matplotlib.pyplot as plt
 import numpy as np
+from gen_vrp import solution_validator
+import pandas as pd
+import time
+
 
 class DeepQAgent:
     def __init__(self, iterations=100, gamma=0.9, lr=5e-5, epsilon=1.0, decay=0.999, eps_threshold=0.01, device = 'cuda' if torch.cuda.is_available() else 'cpu'):
@@ -46,14 +50,13 @@ class DeepQAgent:
     def train (self):
         state = self.environment._get_graph_state()
         replay_memory = self.ReplayMemory()
-        #trained = False
         total_steps = 0
         print("Número de parâmetros treináveis:", sum(p.numel() for p in self.policy.parameters() if p.requires_grad))
         losses = []
+        episodes = []
+
         for episode in range(self.iterations+1):
             
-            #print(replay_memory.memory)
-            #print(state.x)
             done = False
             max_steps = 3*self.environment.state.nodes
 
@@ -68,18 +71,14 @@ class DeepQAgent:
 
                 if random.random() < self.epsilon and self.epsilon > self.eps_threshold: # resolver mask e visited
                     mask = [idx for idx, val in enumerate(self.environment.get_mask()) if val == 1]
-                    #print(mask)
                     action = random.choice(mask)
                     self.epsilon = self.epsilon*self.decay
                 else:
                     with torch.no_grad():
                         actions = self.policy(state).squeeze(-1)
 
-                    #print("policy actions", actions)
                     action = self.environment.get_masked_action(actions)
 
-
-                #print(action)
                 state, reward, done = self.environment.step(action)
                 
                 experience.extend([reward, state.clone(), action, done])
@@ -92,48 +91,26 @@ class DeepQAgent:
                     batches = replay_memory.sample(32)
                     predictions = []
                     targets = []
-                    #print(replay_memory.sample())
-                    #print(replay_memory.memory)
-                    #print(replay_memory.sample())
+
                     for state_0, reward, state_1, action, replay_done in batches:
                         if replay_done:
                             output = torch.tensor(reward, dtype=torch.float32).to(self.device)
 
                         else:
-                            #print(state_1.x)
                             with torch.no_grad():
                                 state_1_action_space = self.target(state_1).squeeze(-1)
 
-                            #print(state_1_action_space)
                             available = state_1.x[:, 1]
-                            #print(len(available))
                             exceed_cap = state_1.x[:, 3] >= state_1.x[:, 0]
                             
                             mask = available*exceed_cap.float()
                             masked_space = state_1_action_space.masked_fill(mask == 0, -1e9)
                             
-                            #print(len(masked_space))
                             state_1_action = torch.max(masked_space)
-                            #print(state_1_action)
-                            #print(state_1_action_space)
-                            #print(state_1_action)
-                        
-                            #tate_1_reward = state_1_action_space[state_1_action].detach()
 
                             output = reward + self.gamma*state_1_action
                         
-                        #print(state_0.x)
                         state_0_action_space = self.policy(state_0).squeeze(-1)
-                        #print(state_0_action_space)
-                        # available = state_0.x[:, 1]
-                        # exceed_cap = state_0.x[:, 3] >= state_0.x[:, 0]
-                        #print(available)
-                        #print(exceed_cap)
-                        # mask = available*exceed_cap.float()
-                        # masked_space = state_0_action_space.masked_fill(mask == 0, -1e9)
-                        #print(mask)
-                        
-                        # state_0_action = torch.argmax(masked_space)
                         
                         state_0_reward = state_0_action_space[action]
                         predictions.append(state_0_reward)
@@ -143,12 +120,11 @@ class DeepQAgent:
                     targ_tensor = torch.stack(targets)
 
                     
-                    
                     criterion = torch.nn.MSELoss().to(self.device)
                     loss = criterion(pred_tensor, targ_tensor)
                     losses.append(loss.item())
+                    episodes.append(episode)
                     
-                    #loss.requires_grad_()
                     self.optimizer.zero_grad()
                     loss.backward()
                     self.optimizer.step()
@@ -168,22 +144,23 @@ class DeepQAgent:
 
             if episode % 5000 == 0:
                 torch.save(self.policy.state_dict(), f"models_1/model_{episode}.pth")
-                #print(losses)
+
                 plt.plot(losses)
                 plt.title(f"loss{episode}")
                 plt.savefig(f"loss_1{episode}.png")
                 plt.close()
-                #plt.show()
 
-        #loss_arr = losses.numpy()
-            
+        return losses, episodes
+
 
     def validate (self, val_set, model_path):
         self.environment = CVRP_env(val_set, 10, False, device=self.device)
         self.policy.load_state_dict(torch.load(model_path, weights_only=True))
         self.policy.eval()
+        data = []
 
-        for instance in range (len(self.environment.loader.instances)-1):
+        for instance in range (len(self.environment.loader.instances)):
+            t1 = time.time()
             state = self.environment._get_graph_state()
 
             done = False
@@ -204,22 +181,68 @@ class DeepQAgent:
                     break
 
 
-
                 with torch.no_grad():
                     actions = self.policy(state).squeeze(-1)
 
-                #print("policy actions", actions)
                 action = self.environment.get_masked_action(actions)
-                #print(action)
 
-                #print(action)
                 state, reward, done = self.environment.step(action)
                 path.append(int(action.item()))
-                
-                #experience.extend([reward, state.clone(), action, done])
 
-                #replay_memory.push(experience)
+            #print(route)
+            instance_path, inst = self.environment.loader.get_current_instance()
+            solver = solution_validator.Solution_validator()
 
-                #total_steps += 1
+            name = instance_path.split("/")[2]
+            data.append([name, solver.get_route_distance(inst, route), time.time()-t1])
+            print("model", "name", name, "distance:", solver.get_route_distance(inst, route))
 
-            print(route)
+        return data
+    
+    def greedy_algorithm (self, val_set):
+        self.environment = CVRP_env(val_set, 10, False, device=self.device)
+        data = []
+
+        for instance in range (len(self.environment.loader.instances)):
+            t1 = time.time()
+            state = self.environment._get_graph_state()
+
+            done = False
+            max_steps = 3*self.environment.state.nodes
+
+            route = []
+            path = []
+            path.append(0)
+            action = None
+            for i in range(max_steps):
+                if action == 0:
+                    route.append(path.copy())
+                    del path[:]
+                    path.append(0)
+
+                if done == True:
+                    _ = self.environment.reset().to(self.device)
+                    break
+
+                mask = torch.from_numpy(self.environment.get_mask()).to(self.device)
+                #mask = torch.tensor([np.inf for idx, val in enumerate(self.environment.get_mask()) if val == 1])
+                #print(mask)
+                #print(distance)
+                distance = state.x[:, 4]
+                actions = mask*distance
+                action_space = torch.where(actions == 0, torch.tensor(float('inf')), actions)
+
+                action = torch.argmin(action_space)
+
+                state, reward, done = self.environment.step(action)
+                path.append(int(action.item()))
+
+            #print(route)
+            instance_path, inst = self.environment.loader.get_current_instance()
+            solver = solution_validator.Solution_validator()
+            name = instance_path.split("/")[2]
+
+            data.append([name, solver.get_route_distance(inst, route), time.time()-t1])
+            print("greedy", "name", name, "distance:", solver.get_route_distance(inst, route))
+
+        return data
