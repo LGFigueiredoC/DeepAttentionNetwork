@@ -16,7 +16,7 @@ class Instance_loader ():
     :param reset: If true, resets the generator with all the instances when finished.
     :param has_solution: If true, every subset must have a .vrp with an equivalent .sol, else, every subset must consist of only .vrp files.
     """
-    def __init__(self, directory, bounds=(0,101), reset=False, has_solution=True):
+    def __init__(self, directory, bounds=(0,101), reset=True, has_solution=True):
         self.dir = directory
         self.bounds = bounds
         self.instance_sets = os.listdir(directory)
@@ -24,6 +24,10 @@ class Instance_loader ():
         self.reset = reset
         self.has_solution = has_solution
 
+        self.make_instances()
+        
+
+    def make_instances (self):
         current_set = [os.path.join(self.dir, inst_set) for inst_set in self.instance_sets]
 
         self.files = pd.concat(pd.Series(os.path.join(inst_set, inst) for inst in os.listdir(inst_set)) for inst_set in current_set)
@@ -39,8 +43,6 @@ class Instance_loader ():
 
         self.keys = list(self.instances.keys())
         random.shuffle(self.keys)
-
-        
 
 
     def next_instance (self, method=None):

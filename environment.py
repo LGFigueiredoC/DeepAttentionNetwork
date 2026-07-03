@@ -6,21 +6,20 @@ from torch_geometric.data import Data
 
 
 class CVRP_env:
-    def __init__(self, path, instance_num=100, generate=False, seed=42, device='cuda' if torch.cuda.is_available() else 'cpu'):
+    def __init__(self, path, instance_num=100, generate=False, reset=False, seed=42, device='cuda' if torch.cuda.is_available() else 'cpu'):
         self.device = device
         if generate:
-            generator = instance_generator.Instance_generator(path+"/instances", instance_num)
             dimensions = [10]
             attributes = [
+                [f'{i}' for i in range(1, 4)],
+                [f'{i}' for i in range(1, 4)],
                 [f'{i}' for i in range(1, 8)],
-                [f'{i}' for i in range(1, 4)],
-                [f'{i}' for i in range(1, 4)],
-                [f'{i}' for i in range(1, 4)]
+                [f'{i}' for i in range(1, 7)]
             ]
-            print(attributes)
-            generator.generate_instances(dimensions, attributes)
+            self.generator = instance_generator.Instance_generator(path+"/instances", n_instances=instance_num, attributes=attributes, dimensions=dimensions)
+            self.generator.generate_instances()
 
-        self.loader = instance_loader.Instance_loader(path, has_solution=False, reset=True)
+        self.loader = instance_loader.Instance_loader(path, has_solution=False, reset=reset)
         self.seed = seed
         self.depot = 0
         self.rng = random.Random(seed)

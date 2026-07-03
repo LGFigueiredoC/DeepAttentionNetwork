@@ -1,19 +1,35 @@
 import random
 import subprocess
+import os
 
 
 class Instance_generator:
-    def __init__(self, path, n_instances):
+    def __init__(self, path, n_instances, attributes, dimensions):
         self.path = path
         self.n_instances = n_instances
+        self.attributes = attributes
+        self.dimensions = dimensions
 
-    def generate_instances (self, dimensions, attributes):
-        for dim in dimensions:
-            for i in range (int(self.n_instances/len(dimensions))):
-                demand = random.choice(attributes[0])
-                depot = random.choice(attributes[1])
-                customer_positioning = random.choice(attributes[2])
-                avg_route_size = random.choice(attributes[3])
-                subprocess.run(["python3", "gen_vrp/generator.py", f'{dim}', depot, customer_positioning,
-                                demand, avg_route_size, f'{i+1}', '42', self.path])
+
+    def generate_instances (self):
+        for i in range (int(self.n_instances)):
+            self.generate_one_instance(i)
+                
+
+    def generate_one_instance (self, id):
+        dimension = random.choice(self.dimensions)
+        depot = random.choice(self.attributes[0])
+        customer_positioning = random.choice(self.attributes[1])
+        demand = random.choice(self.attributes[2])
+        avg_route_size = random.choice(self.attributes[3])
+        subprocess.run(["python3", "gen_vrp/generator.py", f'{dimension}', depot, customer_positioning,
+                        demand, avg_route_size, f'{id+1}', '42', self.path])
         
+
+    def reset_instance_dir (self):
+        for file in os.listdir(self.path):
+            f_path = os.path.join(self.path,file)
+            if os.path.isfile(f_path):
+                os.remove(f_path)
+        
+        self.generate_instances()

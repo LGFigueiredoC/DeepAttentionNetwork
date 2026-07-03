@@ -11,7 +11,7 @@ import time
 
 
 class DeepQAgent:
-    def __init__(self, iterations=100, gamma=0.9, lr=5e-5, epsilon=1.0, decay=0.999, eps_threshold=0.01, device = 'cuda' if torch.cuda.is_available() else 'cpu'):
+    def __init__(self, instance_dir, instance_cap, model_dir, reset=False, iterations=100, gamma=0.9, lr=5e-5, epsilon=1.0, decay=0.999, eps_threshold=0.01, device = 'cuda' if torch.cuda.is_available() else 'cpu'):
         self.iterations = iterations
         self.gamma = gamma
         self.lr = lr
@@ -19,8 +19,11 @@ class DeepQAgent:
         self.decay = decay
         self.eps_threshold = eps_threshold
         self.device = device
+        self.model_dir = model_dir
+
+        self.instance_cap = instance_cap
         
-        self.environment = CVRP_env("super_teste", 10, False, device=self.device)
+        self.environment = CVRP_env(instance_dir, self.instance_cap, generate=True, reset=reset, device=self.device)
         hidden = 128
 
         self.policy = GAT_Policy(node_dim=5, edge_attr=1, hidden_dim=hidden)
@@ -130,7 +133,9 @@ class DeepQAgent:
                     self.optimizer.step()
                     print(f"Episode: {episode}, Step:{i}, loss:{loss}")
 
-                    
+            if episode % self.instance_cap == 0:
+                self.environment.generator.reset_instance_dir()
+                self.environment.loader.make_instances()
             
             if total_steps % 10000 == 0:
                 for name, param in self.policy.named_parameters():
@@ -143,7 +148,7 @@ class DeepQAgent:
                 self.target.to(device=self.device)
 
             if episode % 5000 == 0:
-                torch.save(self.policy.state_dict(), f"models_1/model_{episode}.pth")
+                torch.save(self.policy.state_dict(), f"{self.model_dir}/model_{episode}.pth")
 
                 plt.plot(losses)
                 plt.title(f"loss{episode}")
