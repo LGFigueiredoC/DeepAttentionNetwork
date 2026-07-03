@@ -110,7 +110,7 @@ class Instance_loader ():
         L = deg_matrix - adj_matrix
         print("L", L)
 
-        D_sqrt = np.where(deg_matrix > 0, 1/np.sqrt(deg_matrix), 0)
+        D_sqrt = np.where(deg_matrix > 0, 1/np.sqrt(deg_matrix + 1e-10), 0)
         print(D_sqrt)
 
         return D_sqrt @ L @ D_sqrt
@@ -120,7 +120,7 @@ class Instance_loader ():
         adj_matrix = np.array(instance["edge_weight"])
         deg_matrix = np.diag(np.sum(adj_matrix, axis=1))
 
-        D_sqrt = np.where(deg_matrix > 0, 1/np.sqrt(deg_matrix), 0)
+        D_sqrt = np.where(deg_matrix > 0, 1/np.sqrt(deg_matrix + 1e-10), 0)
 
         return D_sqrt @ adj_matrix @ D_sqrt
     

@@ -3,18 +3,26 @@ from environment import CVRP_env
 from agent import DeepQAgent
 import time
 import pandas as pd
+import os
 
 def main ():
     t0 = time.time()
     iterations = 10 #numero total de iterações no treinamento
+    dimensions = [20]
     #instance_dir é o diretório mestre, dentro deve haver um diretório "instances" que é onde as instâncias vão ser geradas.
     #instance_cap é o número máximo de instâncias que pode ficar dentro de um diretório
     #reset = True deve ser mantido para que o treinamento continue depois que as instâncias acabem
-    agent = DeepQAgent(iterations=iterations, instance_dir="mini_teste", instance_cap=5, reset=True, model_dir="models_teste") 
-    losses, episodes = agent.train()
-    data = pd.DataFrame([losses, episodes])
+    agent = DeepQAgent(iterations=iterations, dimensions=dimensions, instance_dir="inst_geradas", instance_cap=5, reset=True, model_dir="modelos_salvos") 
+    training_data, time_data = agent.train()
+    training_info = pd.DataFrame(training_data)
+    training_info.index = ["loss", "step"]
     
-    data.to_csv("training_info.csv")
+    saves_info = pd.DataFrame(time_data)
+    saves_info.index = ["save_time", "step", "loss"]
+
+    os.makedirs("training_data", exist_ok=True)
+    training_info.to_csv("training_data/training_info.csv")
+    saves_info.to_csv("training_data/saves_info.csv")
 
     # model_data = agent.validate("mini_teste", "models_normalized/model_50000.pth")
     # greedy_data = agent.greedy_algorithm("mini_teste")

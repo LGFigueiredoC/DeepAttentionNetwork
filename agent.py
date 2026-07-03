@@ -8,10 +8,11 @@ import numpy as np
 from gen_vrp import solution_validator
 import pandas as pd
 import time
+import os
 
 
 class DeepQAgent:
-    def __init__(self, instance_dir, instance_cap, model_dir, reset=False, iterations=100, gamma=0.9, lr=5e-5, epsilon=1.0, decay=0.999, eps_threshold=0.01, device = 'cuda' if torch.cuda.is_available() else 'cpu'):
+    def __init__(self, instance_dir, instance_cap, model_dir, dimensions, reset=False, iterations=100, gamma=0.9, lr=5e-5, epsilon=1.0, decay=0.999, eps_threshold=0.01, device = 'cuda' if torch.cuda.is_available() else 'cpu'):
         self.iterations = iterations
         self.gamma = gamma
         self.lr = lr
@@ -21,9 +22,12 @@ class DeepQAgent:
         self.device = device
         self.model_dir = model_dir
 
+        os.makedirs(self.model_dir, exist_ok=True)
+        os.makedirs("plots", exist_ok=True)
+
         self.instance_cap = instance_cap
         
-        self.environment = CVRP_env(instance_dir, self.instance_cap, generate=True, reset=reset, device=self.device)
+        self.environment = CVRP_env(instance_dir, dimensions=dimensions, instance_cap=self.instance_cap, generate=True, reset=reset, device=self.device)
         hidden = 128
 
         self.policy = GAT_Policy(node_dim=5, edge_attr=1, hidden_dim=hidden)
@@ -51,15 +55,19 @@ class DeepQAgent:
         
 
     def train (self):
+        start_time = time.time()
         state = self.environment._get_graph_state()
         replay_memory = self.ReplayMemory()
         total_steps = 0
         print("Número de parâmetros treináveis:", sum(p.numel() for p in self.policy.parameters() if p.requires_grad))
+        save_times = []
+        time_step = []
+        time_loss = []
         losses = []
-        episodes = []
+        step_memory = []
+        best_loss = np.inf
 
         for episode in range(self.iterations+1):
-            
             done = False
             max_steps = 3*self.environment.state.nodes
 
@@ -126,7 +134,7 @@ class DeepQAgent:
                     criterion = torch.nn.MSELoss().to(self.device)
                     loss = criterion(pred_tensor, targ_tensor)
                     losses.append(loss.item())
-                    episodes.append(episode)
+                    step_memory.append(total_steps)
                     
                     self.optimizer.zero_grad()
                     loss.backward()
@@ -147,15 +155,30 @@ class DeepQAgent:
                 self.target.load_state_dict(self.policy.state_dict())
                 self.target.to(device=self.device)
 
-            if episode % 5000 == 0:
-                torch.save(self.policy.state_dict(), f"{self.model_dir}/model_{episode}.pth")
+            if episode > 1:
+                if len(losses) > 0 and losses[len(losses)-1] < best_loss:
+                    torch.save(self.policy.state_dict(), f"{self.model_dir}/model_{int(episode/5000)*5000}.pth")
+                    partial_time = time.time()
+                    save_times.append(partial_time-start_time)
+                    time_step.append(total_steps)
+                    time_loss.append(losses[len(losses)-1])
 
+                    best_loss = losses[len(losses)-1]
+
+            if episode > 1 and episode % 5000 == 0:
+                torch.save(self.policy.state_dict(), f"{self.model_dir}/model_{episode}.pth")
+                partial_time = time.time()
+                save_times.append(partial_time-start_time)
+                time_step.append(total_steps)
+                time_loss.append(losses[len(losses)-1])
+
+                best_loss = np.inf
                 plt.plot(losses)
                 plt.title(f"loss{episode}")
-                plt.savefig(f"loss_1{episode}.png")
+                plt.savefig(f"plots/loss_{episode}.png")
                 plt.close()
 
-        return losses, episodes
+        return [losses, step_memory], [save_times, time_step, time_loss]
 
 
     def validate (self, val_set, model_path):

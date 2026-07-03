@@ -6,18 +6,18 @@ from torch_geometric.data import Data
 
 
 class CVRP_env:
-    def __init__(self, path, instance_num=100, generate=False, reset=False, seed=42, device='cuda' if torch.cuda.is_available() else 'cpu'):
+    def __init__(self, path, dimensions, instance_cap=100, generate=False, reset=False, seed=42, device='cuda' if torch.cuda.is_available() else 'cpu'):
         self.device = device
         if generate:
-            dimensions = [10]
+            dimensions = dimensions
             attributes = [
                 [f'{i}' for i in range(1, 4)],
                 [f'{i}' for i in range(1, 4)],
                 [f'{i}' for i in range(1, 8)],
                 [f'{i}' for i in range(1, 7)]
             ]
-            self.generator = instance_generator.Instance_generator(path+"/instances", n_instances=instance_num, attributes=attributes, dimensions=dimensions)
-            self.generator.generate_instances()
+            self.generator = instance_generator.Instance_generator(path+"/instances", n_instances=instance_cap, attributes=attributes, dimensions=dimensions)
+            self.generator.reset_instance_dir()
 
         self.loader = instance_loader.Instance_loader(path, has_solution=False, reset=reset)
         self.seed = seed
@@ -52,7 +52,7 @@ class CVRP_env:
     
 
     def reset (self):
-        self.current_instance = self.loader.next_instance()
+        self.current_instance = self.loader.next_instance(method="symmetric")
         self.state = self.State(self.current_instance)
         self.edge_index = self.__generate_edge_index()
 

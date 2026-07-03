@@ -12,6 +12,10 @@ class Instance_generator:
 
 
     def generate_instances (self):
+        os.makedirs(self.path, exist_ok=True)
+        # inst_path = os.path.join(self.path, "instances")
+        # os.makedirs(inst_path, exist_ok=True)
+
         for i in range (int(self.n_instances)):
             self.generate_one_instance(i)
                 
