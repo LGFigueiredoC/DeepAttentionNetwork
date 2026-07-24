@@ -3,12 +3,15 @@ from gen_vrp import instance_generator, instance_loader
 import torch
 import random
 from torch_geometric.data import Data
+import os
 
 
 class CVRP_env:
-    def __init__(self, path, dimensions, instance_cap=100, generate=False, reset=False, seed=42, device='cuda' if torch.cuda.is_available() else 'cpu'):
+    def __init__(self, path, dimensions, instance_cap=100, generate=False, reset=False, has_solution=False, seed=42, device='cuda' if torch.cuda.is_available() else 'cpu'):
         self.device = device
         if generate:
+            os.makedirs(path, exist_ok=True)
+            os.makedirs(path+"/instances", exist_ok=True)
             dimensions = dimensions
             attributes = [
                 [f'{i}' for i in range(1, 4)],
@@ -19,7 +22,7 @@ class CVRP_env:
             self.generator = instance_generator.Instance_generator(path+"/instances", n_instances=instance_cap, attributes=attributes, dimensions=dimensions)
             self.generator.reset_instance_dir()
 
-        self.loader = instance_loader.Instance_loader(path, has_solution=False, reset=reset)
+        self.loader = instance_loader.Instance_loader(path, has_solution=has_solution, reset=reset)
         self.seed = seed
         self.depot = 0
         self.rng = random.Random(seed)
@@ -30,6 +33,7 @@ class CVRP_env:
 
     class State:
         def __init__(self, instance):
+            print(instance)
             self.nodes = instance["dimension"]
             self.customer_nodes = self.nodes-1
             self.demands = np.array(instance["demand"])

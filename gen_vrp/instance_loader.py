@@ -34,15 +34,21 @@ class Instance_loader ():
         self.files.sort_values(inplace=True, ignore_index=True)
 
         vrp = self.files.tolist()
-        
+        #print(vrp)
         if self.has_solution:
-            self.instances = {f"{int(i/2)}": vrplib.read_instance(vrp[i+1]) for i in range(0, len(vrp), 2)}
+            self.instances = {f"{int(i/2)}": vrplib.read_instance(vrp[i]) for i in range(1, len(vrp), 2)}
             self.solutions = {f"{int(i/2)}": vrplib.read_solution(vrp[i]) for i in range(0, len(vrp), 2)}
         else:
             self.instances = {f"{int(i)}": vrplib.read_instance(vrp[i]) for i in range(0, len(vrp))}
 
+        #print(self.instances)
+        print(len(self.solutions))
         self.keys = list(self.instances.keys())
         random.shuffle(self.keys)
+
+
+    def get_current_solution(self):
+        return self.solutions[self.keys[self.idx]]
 
 
     def next_instance (self, method=None):
@@ -71,10 +77,10 @@ class Instance_loader ():
             if instance["edge_weight"].any() == None:
                 return self.next_instance(method)
             
-            if self.has_solution:
-                solution = self.solutions[self.keys[self.idx]]
+            # if self.has_solution:
+            #     solution = self.solutions[self.keys[self.idx]]
 
-                return instance, solution
+            #     return instance, solution
             
             return instance
     

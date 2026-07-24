@@ -12,7 +12,7 @@ import os
 
 
 class DeepQAgent:
-    def __init__(self, instance_dir, instance_cap, model_dir, dimensions, reset=False, iterations=100, gamma=0.9, lr=5e-5, epsilon=1.0, decay=0.999, eps_threshold=0.01, device = 'cuda' if torch.cuda.is_available() else 'cpu'):
+    def __init__(self, instance_dir, instance_cap, model_dir, dimensions, validation=False, reset=False, iterations=100, gamma=0.9, lr=5e-5, epsilon=1.0, decay=0.999, eps_threshold=0.01, device = 'cuda' if torch.cuda.is_available() else 'cpu'):
         self.iterations = iterations
         self.gamma = gamma
         self.lr = lr
@@ -26,8 +26,9 @@ class DeepQAgent:
         os.makedirs("plots", exist_ok=True)
 
         self.instance_cap = instance_cap
-        
-        self.environment = CVRP_env(instance_dir, dimensions=dimensions, instance_cap=self.instance_cap, generate=True, reset=reset, device=self.device)
+
+        if not validation:
+            self.environment = CVRP_env(instance_dir, dimensions=dimensions, instance_cap=self.instance_cap, generate=False, reset=reset, device=self.device)
         hidden = 128
 
         self.policy = GAT_Policy(node_dim=5, edge_attr=1, hidden_dim=hidden)
@@ -182,7 +183,7 @@ class DeepQAgent:
 
 
     def validate (self, val_set, model_path):
-        self.environment = CVRP_env(val_set, 10, False, device=self.device)
+        self.environment = CVRP_env(val_set, 10, generate=False, has_solution=True, device=self.device)
         self.policy.load_state_dict(torch.load(model_path, weights_only=True))
         self.policy.eval()
         data = []

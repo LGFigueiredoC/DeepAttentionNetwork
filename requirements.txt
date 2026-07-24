@@ -1,0 +1,6 @@
+pandas
+numpy
+vrplib
+torch
+torch_geometric
+matplotlib
