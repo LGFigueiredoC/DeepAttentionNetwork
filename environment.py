@@ -33,7 +33,7 @@ class CVRP_env:
 
     class State:
         def __init__(self, instance):
-            print(instance)
+            #print(instance)
             self.nodes = instance["dimension"]
             self.customer_nodes = self.nodes-1
             self.demands = np.array(instance["demand"])
@@ -56,7 +56,7 @@ class CVRP_env:
     
 
     def reset (self):
-        self.current_instance = self.loader.next_instance(method="symmetric")
+        self.current_instance = self.loader.next_instance()
         self.state = self.State(self.current_instance)
         self.edge_index = self.__generate_edge_index()
 

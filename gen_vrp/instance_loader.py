@@ -28,8 +28,10 @@ class Instance_loader ():
         
 
     def make_instances (self):
-        current_set = [os.path.join(self.dir, inst_set) for inst_set in self.instance_sets]
-
+        print("Loading instances")
+        current_set = [os.path.join(self.dir, inst_set) for inst_set in self.instance_sets if (inst_set != "XML" and inst_set != "AGS")]
+        #print(current_set)
+        #exit(5)
         self.files = pd.concat(pd.Series(os.path.join(inst_set, inst) for inst in os.listdir(inst_set)) for inst_set in current_set)
         self.files.sort_values(inplace=True, ignore_index=True)
 
@@ -42,9 +44,10 @@ class Instance_loader ():
             self.instances = {f"{int(i)}": vrplib.read_instance(vrp[i]) for i in range(0, len(vrp))}
 
         #print(self.instances)
-        print(len(self.solutions))
+        #print(len(self.solutions))
         self.keys = list(self.instances.keys())
         random.shuffle(self.keys)
+        print("Loading Finished")
 
 
     def get_current_solution(self):
@@ -148,7 +151,8 @@ class Instance_loader ():
 
     def get_current_instance (self):
         vrp = list(self.files)
-        return vrp[int(self.keys[self.idx])], self.instances[self.keys[self.idx]]
+        #print(len(vrp), len(self.instances),    2*int(self.keys[self.idx]))
+        return vrp[2*int(self.keys[self.idx])+1], self.instances[self.keys[self.idx]]
     
 
 # gen = Instance_loader("test_set")

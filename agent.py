@@ -183,12 +183,14 @@ class DeepQAgent:
 
 
     def validate (self, val_set, model_path):
-        self.environment = CVRP_env(val_set, 10, generate=False, has_solution=True, device=self.device)
+        self.environment = CVRP_env(val_set, 10, generate=False, reset=True, has_solution=True, device=self.device)
         self.policy.load_state_dict(torch.load(model_path, weights_only=True))
         self.policy.eval()
         data = []
-
-        for instance in range (len(self.environment.loader.instances)):
+        #print(self.environment.loader.instances)
+        num_instances = len(self.environment.loader.instances)
+        for instance in range(num_instances):
+            #print(instance)
             t1 = time.time()
             state = self.environment._get_graph_state()
 
@@ -206,7 +208,6 @@ class DeepQAgent:
                     path.append(0)
 
                 if done == True:
-                    _ = self.environment.reset().to(self.device)
                     break
 
 
@@ -220,11 +221,17 @@ class DeepQAgent:
 
             #print(route)
             instance_path, inst = self.environment.loader.get_current_instance()
+            #print(instance_path, inst)
+            solution = self.environment.loader.get_current_solution()
             solver = solution_validator.Solution_validator()
 
             name = instance_path.split("/")[2]
-            data.append([name, solver.get_route_distance(inst, route), time.time()-t1])
-            print("model", "name", name, "distance:", solver.get_route_distance(inst, route))
+            total_cost = solver.get_route_distance(inst, route)
+            total_time = time.time()-t1
+            data.append([name, total_cost, solution["cost"], round(total_cost*100/solution["cost"], 2), total_time])
+            print(f"Instance: {instance} out of {num_instances}, Exec. time: {total_time}")
+            #print("model", "name", name, "distance:", total_cost, "solution", solution["cost"], "percentage", round(total_cost*100/solution["cost"], 2))
+            _ = self.environment.reset().to(self.device)
 
         return data
     
