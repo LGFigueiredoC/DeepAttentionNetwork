@@ -29,14 +29,14 @@ class Instance_loader ():
 
     def make_instances (self):
         print("Loading instances")
-        current_set = [os.path.join(self.dir, inst_set) for inst_set in self.instance_sets if (inst_set != "XML" and inst_set != "AGS")]
+        current_set = [os.path.join(self.dir, inst_set) for inst_set in self.instance_sets if (inst_set != "AGS")]
         #print(current_set)
         #exit(5)
         self.files = pd.concat(pd.Series(os.path.join(inst_set, inst) for inst in os.listdir(inst_set)) for inst_set in current_set)
         self.files.sort_values(inplace=True, ignore_index=True)
 
         vrp = self.files.tolist()
-        #print(vrp)
+        print(vrp)
         if self.has_solution:
             self.instances = {f"{int(i/2)}": vrplib.read_instance(vrp[i]) for i in range(1, len(vrp), 2)}
             self.solutions = {f"{int(i/2)}": vrplib.read_solution(vrp[i]) for i in range(0, len(vrp), 2)}
