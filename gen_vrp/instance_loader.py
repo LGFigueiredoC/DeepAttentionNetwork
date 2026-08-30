@@ -131,7 +131,11 @@ class Instance_loader ():
 
         D_sqrt = np.where(deg_matrix > 0, 1/np.sqrt(deg_matrix + 1e-10), 0)
 
-        return D_sqrt @ adj_matrix @ D_sqrt
+        normalized_matrix = D_sqrt @ adj_matrix @ D_sqrt
+
+        k = int(1/np.min(normalized_matrix))
+
+        return k*normalized_matrix
     
 
     def __test_normalization (self, instance):

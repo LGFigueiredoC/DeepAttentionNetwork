@@ -68,6 +68,8 @@ class DeepQAgent:
         step_memory = []
         best_loss = np.inf
 
+        early_s_counter = 0
+
         for episode in range(self.iterations+1):
             done = False
             max_steps = 3*self.environment.state.nodes
@@ -165,6 +167,24 @@ class DeepQAgent:
                     time_loss.append(losses[len(losses)-1])
 
                     best_loss = losses[len(losses)-1]
+                    early_s_counter = 0
+
+                else:
+                    early_s_counter += 1
+                    if early_s_counter >= 100:
+                        torch.save(self.policy.state_dict(), f"{self.model_dir}/model_{episode}.pth")
+                        partial_time = time.time()
+                        save_times.append(partial_time-start_time)
+                        time_step.append(total_steps)
+                        time_loss.append(losses[len(losses)-1])
+        
+                        best_loss = np.inf
+                        plt.plot(losses)
+                        plt.title(f"loss{episode}")
+                        plt.savefig(f"plots/loss_{episode}.png")
+                        plt.close()
+
+                        return [losses, step_memory], [save_times, time_step, time_loss]
 
             if episode > 1 and episode % 5000 == 0:
                 torch.save(self.policy.state_dict(), f"{self.model_dir}/model_{episode}.pth")
